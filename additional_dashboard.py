@@ -5,7 +5,6 @@ import seaborn as sns
 import panel as pn
 import bokeh
 from sklearn.model_selection import cross_val_score
-import hvplot.pandas
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
@@ -14,7 +13,7 @@ import holoviews as hv
 hv.extension('bokeh')
 pn.extension()
 
-df = pd.read_csv("StudentsPerformance.csv")
+df = pd.read_csv("updated.csv")
 
 def additional_analysis():
     # Create the dashboard for additional analysis
