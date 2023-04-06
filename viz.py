@@ -27,7 +27,7 @@ analyze_button = pn.widgets.Button(name="Model Performance", button_type="primar
 additional_button = pn.widgets.Button(name="Additional Analysis", button_type="primary")
 
 home_page = pn.Column(
-    pn.pane.Markdown("## Home Page"),
+    pn.pane.Markdown("#### Home Page"),
     pn.Row(
         pn.Column(
             explore_button,

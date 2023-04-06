@@ -1,19 +1,26 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import seaborn as sns
 import panel as pn
 import hvplot.pandas
 import holoviews as hv
+from sklearn.cluster import KMeans
 import bokeh
-import hvplot.pandas
+from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.svm import SVR
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
-hv.extension('bokeh')
-pn.extension()
+pn.extension('tabulator')
+
+#from viz import home_page
+
 
 data = pd.read_csv("StudentsPerformance.csv")
 # Check the data types of each column
@@ -51,26 +58,78 @@ def analyze_data(df):
     y = df['gender']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Train and evaluate the model
-    rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf_model.fit(X_train, y_train)
-    y_pred = rf_model.predict(X_test)
-    mse = mean_squared_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
+    # Train and evaluate the models
+    models = {
+        'RF Regression': RandomForestRegressor(n_estimators=100, random_state=42),
+        'Linear Regression': LinearRegression(),
+        'Decision Tree Regression': DecisionTreeRegressor(random_state=42),
+        'SVR': SVR(kernel='linear'),
+        'K-NN Regression': KNeighborsRegressor(n_neighbors=5)
+    }
 
-    # Add results to the dataframe
-    results = results.append({'Model': 'Random Forest Regression', 'MSE': mse, 'R2 Score': r2}, ignore_index=True)
+    for model_name, model in models.items():
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
 
+        # Add results to the dataframe
+        results = results.append({'Model': model_name, 'MSE': mse, 'R2 Score': r2}, ignore_index=True)
+    
     # Create a plot to display the results
     plot = results.hvplot.bar(x='Model', y=['MSE', 'R2 Score'], title='Model Performance', ylim=(0, 1.1))
+    
+    # Create a table to display the results
+    table = pn.widgets.Tabulator(results, layout='fit_data_stretch', height=300, selectable=True)
+    
+    # Perform clustering
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    kmeans.fit(X)
+    df['Cluster Label'] = kmeans.labels_
+    
+    # Create a scatter plot to display the clustering results
+    cluster_plot = df.hvplot.scatter(x='math score', y='reading score', by='Cluster Label', cmap='Category10', title='Cluster Analysis')
+   
+    # Create plots to display the results of each model
+    model_plots = {}
+    for model_name, model in models.items():
+        model_plots[model_name] = pd.DataFrame({'Actual': y_test, 'Predicted': model.predict(X_test)}).hvplot.scatter(x='Actual', y='Predicted', title=model_name)
+    
+     # Create a function to print the best model based on MSE
+    def best_model_mse():
+        best_mse = results.loc[results['MSE'].idxmin()]
+        return f"The best model based on MSE is {best_mse['Model']} with an MSE of {best_mse['MSE']:.2f}."
+    
+     # Define a function to find the best model based on R2 Score
+    def best_model_r2():
+        best_r2 = results.loc[results['R2 Score'].idxmax()]
+        return f"The best model based on R2 Score is {best_r2['Model']} with an R2 Score of {best_r2['R2 Score']:.2f}."
+    
+    # Add the best models based on MSE and R2 Score to the dashboard
+    dashboard_analyze = []
+    best_mse = best_model_mse()
+    best_r2 = best_model_r2()
+    dashboard_analyze.append(pn.Row(pn.Column(best_mse), pn.Column(best_r2)))
 
-    # Create a dashboard with the plot
+    # Create a dashboard with the plot and table
     dashboard_analyze = pn.Column(
         '# Model Performance',
-        'The following plot shows the performance of the trained model on the test data.',
-        plot
-    )
-
+        'The following plot shows the performance of the trained models on the test data.',
+        plot,
+        'Model Performance Table',
+        table,
+        '# Best Model based on MSE',
+        best_mse,
+        '# Best Model based on R2',
+        best_r2,
+        '# Cluster Analysis',
+        'The following plot shows the clusters of similar students based on their performance in math and reading.',
+        pn.Column(cluster_plot),
+        '# Model Predictions',
+        'The following plots show the predicted versus actual scores for each model.',
+        pn.Column(*list(model_plots.values())
+        ))
+    
     return dashboard_analyze
 
 dashboard_analyze = analyze_data(df)
